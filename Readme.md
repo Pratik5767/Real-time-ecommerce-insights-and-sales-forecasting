@@ -34,62 +34,62 @@ The entire workflow is orchestrated by a **Fabric Pipeline** that can be schedul
 ### Data Flow Diagram
 
 ```
-                            ┌─────────────────────────────────────────────────────────────────────────┐
-                            │                         DATA GENERATION                                 │
-                            │                                                                         │
-                            │   Python + Faker + Kafka Producer                                       │
-                            │   └── Simulates real-time e-commerce orders (order_id, customer,        │
-                            │       product, price, quantity, city, state, delivery_status ...)       │
-                            └───────────────────────────┬─────────────────────────────────────────────┘
-                                                        │ Kafka Topic
-                                                        ▼
-                            ┌─────────────────────────────────────────────────────────────────────────┐
-                            │                      MICROSOFT FABRIC EVENTSTREAM                       │
-                            │                                                                         │
-                            │   Source: Kafka Connection                                              │
-                            │   Destination: Lakehouse (lh_ecommerce_orders)                          │
-                            │   └── Streams data into Tables/dbo/stream_data (Delta format)           │
-                            └───────────────────────────┬─────────────────────────────────────────────┘
-                                                        │
-                                                        ▼
-                            ┌─────────────────────────────────────────────────────────────────────────┐
-                            │           MICROSOFT FABRIC LAKEHOUSE — MEDALLION ARCHITECTURE           │
-                            │                                                                         │
-                            │           ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
-                            │           │   BRONZE    │───▶│   SILVER    │───▶│    GOLD    │         │
-                            │           │             │    │             │    │             │         │
-                            │           │ Raw ingested│    │ Cleaned &   │    │ Aggregated  │         │
-                            │           │ orders with │    │ enriched    │    │ sales per   │         │
-                            │           │ metadata    │    │ USA orders  │    │ state/minute│         │
-                            │           └─────────────┘    └─────────────┘    └─────────────┘         │
-                            │           bronze.orders       silver.orders      gold.orders            │
-                            └───────────────────────────┬─────────────────────────────────────────────┘
-                                                        │
-                                                        ▼
-                            ┌─────────────────────────────────────────────────────────────────────────┐
-                            │                   FABRIC WAREHOUSE (wh_ecommerce_orders)                │
-                            │                                                                         │
-                            │   dbo.gold_orders  ← MERGE from lh_ecommerce_orders.gold.orders         │
-                            │   (Upsert: insert new rows, update existing aggregations)               │
-                            └───────────────────────────┬─────────────────────────────────────────────┘
-                                                        │
-                                                        ▼
-                            ┌─────────────────────────────────────────────────────────────────────────┐
-                            │                  SEMANTIC MODEL → POWER BI DASHBOARD                    │
-                            │                                                                         │
-                            │   Real-time visuals: Sales by State, Orders by Category,                │
-                            │   Revenue Trends, Delivery Status breakdown                             │
-                            └─────────────────────────────────────────────────────────────────────────┘
-                                                        ▲
-                                                        │ Orchestrated by
-                            ┌─────────────────────────────────────────────────────────────────────────┐
-                            │              FABRIC PIPELINE (pl_ecommerce_orders)                      │
-                            │                                                                         │
-                            │  stream_orders_to_bronze → cleaned_values_to_silver →                   │
-                            │  aggregated_to_gold → warehouse_script                                  │
-                            │                                                                         │
-                            │  ✅ Schedulable   ✅ Monitored   ✅ Retriable                          │
-                            └─────────────────────────────────────────────────────────────────────────┘
+                    ┌─────────────────────────────────────────────────────────────────────────┐
+                    │                         DATA GENERATION                                 │
+                    │                                                                         │
+                    │   Python + Faker + Kafka Producer                                       │
+                    │   └── Simulates real-time e-commerce orders (order_id, customer,        │
+                    │       product, price, quantity, city, state, delivery_status ...)       │
+                    └───────────────────────────┬─────────────────────────────────────────────┘
+                                                │ Kafka Topic
+                                                ▼
+                    ┌─────────────────────────────────────────────────────────────────────────┐
+                    │                      MICROSOFT FABRIC EVENTSTREAM                       │
+                    │                                                                         │
+                    │   Source: Kafka Connection                                              │
+                    │   Destination: Lakehouse (lh_ecommerce_orders)                          │
+                    │   └── Streams data into Tables/dbo/stream_data (Delta format)           │
+                    └───────────────────────────┬─────────────────────────────────────────────┘
+                                                │
+                                                ▼
+                    ┌─────────────────────────────────────────────────────────────────────────┐
+                    │           MICROSOFT FABRIC LAKEHOUSE — MEDALLION ARCHITECTURE           │
+                    │                                                                         │
+                    │           ┌─────────────┐    ┌─────────────┐    ┌─────────────┐         │
+                    │           │   BRONZE    │───▶│   SILVER    │───▶│    GOLD    │         │
+                    │           │             │    │             │    │             │         │
+                    │           │ Raw ingested│    │ Cleaned &   │    │ Aggregated  │         │
+                    │           │ orders with │    │ enriched    │    │ sales per   │         │
+                    │           │ metadata    │    │ USA orders  │    │ state/minute│         │
+                    │           └─────────────┘    └─────────────┘    └─────────────┘         │
+                    │           bronze.orders       silver.orders      gold.orders            │
+                    └───────────────────────────┬─────────────────────────────────────────────┘
+                                                │
+                                                ▼
+                    ┌─────────────────────────────────────────────────────────────────────────┐
+                    │                   FABRIC WAREHOUSE (wh_ecommerce_orders)                │
+                    │                                                                         │
+                    │   dbo.gold_orders  ← MERGE from lh_ecommerce_orders.gold.orders         │
+                    │   (Upsert: insert new rows, update existing aggregations)               │
+                    └───────────────────────────┬─────────────────────────────────────────────┘
+                                                │
+                                                ▼
+                    ┌─────────────────────────────────────────────────────────────────────────┐
+                    │                  SEMANTIC MODEL → POWER BI DASHBOARD                    │
+                    │                                                                         │
+                    │   Real-time visuals: Sales by State, Orders by Category,                │
+                    │   Revenue Trends, Delivery Status breakdown                             │
+                    └─────────────────────────────────────────────────────────────────────────┘
+                                                ▲
+                                                │ Orchestrated by
+                    ┌─────────────────────────────────────────────────────────────────────────┐
+                    │              FABRIC PIPELINE (pl_ecommerce_orders)                      │
+                    │                                                                         │
+                    │  stream_orders_to_bronze → cleaned_values_to_silver →                   │
+                    │  aggregated_to_gold → warehouse_script                                  │
+                    │                                                                         │
+                    │  ✅ Schedulable   ✅ Monitored   ✅ Retriable                          │
+                    └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
