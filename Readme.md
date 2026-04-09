@@ -92,6 +92,10 @@ The entire workflow is orchestrated by a **Fabric Pipeline** that can be schedul
                     └─────────────────────────────────────────────────────────────────────────┘
 ```
 
+### Lineage view
+
+![lineage](images/lineage_diagram.png)
+
 ---
 
 ## 🧰 Tech Stack
