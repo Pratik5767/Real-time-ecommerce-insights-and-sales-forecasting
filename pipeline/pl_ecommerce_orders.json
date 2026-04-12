@@ -1,0 +1,115 @@
+{
+    "name": "pl_ecommerce_orders",
+    "objectId": "3f87df61-a7e3-443a-bb44-3c589de4f38f",
+    "properties": {
+        "activities": [
+            {
+                "name": "stream_orders_to_bronze",
+                "type": "TridentNotebook",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "notebookId": "86d3b933-d18a-497e-b5c3-acf4a03632b1",
+                    "workspaceId": "0c760a85-eb61-480a-8612-7342da5ebbc4"
+                }
+            },
+            {
+                "name": "cleaned_values_to_silver",
+                "type": "TridentNotebook",
+                "dependsOn": [
+                    {
+                        "activity": "stream_orders_to_bronze",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "notebookId": "e2db4b0a-6a30-4346-86b2-95b69fb55eb5",
+                    "workspaceId": "0c760a85-eb61-480a-8612-7342da5ebbc4"
+                }
+            },
+            {
+                "name": "gold_aggregations",
+                "type": "TridentNotebook",
+                "dependsOn": [
+                    {
+                        "activity": "cleaned_values_to_silver",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "typeProperties": {
+                    "notebookId": "f7a6c896-3782-4999-899d-4ec5faf59c05",
+                    "workspaceId": "0c760a85-eb61-480a-8612-7342da5ebbc4"
+                }
+            },
+            {
+                "name": "warehouse script",
+                "type": "Script",
+                "dependsOn": [
+                    {
+                        "activity": "gold_aggregations",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "linkedService": {
+                    "name": "wh_ecommerce_orders",
+                    "properties": {
+                        "annotations": [],
+                        "type": "DataWarehouse",
+                        "typeProperties": {
+                            "endpoint": "7vo4vqvye4muxh52o2n7udlgm4-qufhmddb5mferbqsonbnuxv3yq.datawarehouse.fabric.microsoft.com",
+                            "artifactId": "b8a2f8c0-fd5c-4fe0-b10b-b935b25e6a09",
+                            "workspaceId": "0c760a85-eb61-480a-8612-7342da5ebbc4"
+                        }
+                    }
+                },
+                "typeProperties": {
+                    "scripts": [
+                        {
+                            "type": "Query",
+                            "text": {
+                                "value": "IF NOT EXISTS (\n    SELECT 1 FROM sys.tables \n    WHERE name = 'gold_orders' AND schema_id = SCHEMA_ID('dbo')\n)\nBEGIN\n    SELECT * \n    INTO dbo.gold_orders\n    FROM lh_ecommerce_orders.gold.orders\n    WHERE 1 = 0  \nEND\n\nMERGE dbo.gold_orders AS target\nUSING (\n    SELECT \n        window_start,\n        window_end,\n        state,\n        total_sales,\n        total_items\n    FROM lh_ecommerce_orders.gold.orders\n) AS source\nON (\n    target.window_start = source.window_start\n    AND target.window_end = source.window_end\n    AND target.state = source.state\n)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        target.total_sales  = source.total_sales,\n        target.total_items  = source.total_items\n\nWHEN NOT MATCHED BY TARGET THEN\n    INSERT (window_start, window_end, state, total_sales, total_items)\n    VALUES (source.window_start, source.window_end, source.state, source.total_sales, source.total_items);",
+                                "type": "Expression"
+                            }
+                        }
+                    ],
+                    "scriptBlockExecutionTimeout": "02:00:00"
+                }
+            }
+        ],
+        "lastModifiedByObjectId": "5c8b9eac-bf51-49cc-b47c-a59ec8373d01",
+        "lastPublishTime": "2026-04-08T11:41:20Z"
+    }
+}
